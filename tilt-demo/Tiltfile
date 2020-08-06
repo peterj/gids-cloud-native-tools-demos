@@ -1,0 +1,26 @@
+# Extensions: https://docs.tilt.dev/extensions.html
+load('ext://restart_process', 'docker_build_with_restart')
+
+local_resource(
+  'go-compile',
+  'CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/tilt-demo ./',
+  deps=['./main.go'])
+
+docker_build_with_restart(
+  'tilt-demo',
+  '.',
+  entrypoint=['/app/build/tilt-demo'],
+  dockerfile='Dockerfile',
+  only=[
+    './build',
+    './web',
+  ],
+  live_update=[
+    sync('./build', '/app/build'),
+    sync('./web', '/app/web'),
+  ],
+)
+
+k8s_yaml('deploy.yaml')
+k8s_resource('tilt-demo', port_forwards=8000,
+             resource_deps=['go-compile'])
